@@ -11,14 +11,10 @@ import domain.helpers.Configuration;
 import jakarta.inject.Inject;
 import jakarta.websocket.ClientEndpoint;
 import org.jboss.logging.Logger;
-
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import org.eclipse.microprofile.faulttolerance.Retry;
 
 @ClientEndpoint()
 public class WsClient {
@@ -33,10 +29,7 @@ public class WsClient {
     private static Logger logger = Logger.getLogger(WsClient.class.getName());
     private static final String WS_URI_FORMAT = "ws://%s:%s/api/v1/websocket/%s";
 
-    private final ObjectMapper objectMapper;
-
-
-    private final ConcurrentHashMap<String, Instant> sentMessages = new ConcurrentHashMap<>();
+    private final ObjectMapper objectMapper;    
 
     public WsClient(ObjectMapper objectMapper) {
         this.factory = new WebSocketFactory();
@@ -63,7 +56,6 @@ public class WsClient {
                 public void onConnected(WebSocket websocket, Map<String, List<String>> headers) {
                     System.out.println("Connected to WebSocket server at: " + websocket.getURI() + " with user: " + user);
                     connectionManager.add(user, websocket);
-                    System.out.println("Current active connections: " + connectionManager.getSessionMap());
                 }
 
                 @Override
@@ -75,10 +67,9 @@ public class WsClient {
                                         WebSocketFrame serverCloseFrame, 
                                         WebSocketFrame clientCloseFrame, 
                                         boolean closedByServer) {
-                System.out.println("Disconnected. Attempting to reconnect..." + serverCloseFrame.getCloseReason() + " - " + serverCloseFrame.getCloseCode());
+                System.out.println("Disconnected. Attempting to reconnect user..." + user + " Close reason: " + serverCloseFrame.getCloseReason() + " - " + serverCloseFrame.getCloseCode());
 
                 // RECONNECTION LOGIC
-                // In a production app, you might want to add exponential backoff here
                 connectionManager.getConnection(user).ifPresent(ws -> 
                     reconnect(ws)
                 );                                
@@ -99,10 +90,7 @@ public class WsClient {
     }
 
     public void disconnect(String user) {
-        logger.info("Attempting to disconnect WebSocket for user: " + user);
-        logger.info("Current active connections: " + connectionManager.getSessionMap());
         connectionManager.getConnection(user).ifPresent(connection -> {
-            logger.info("Found active WebSocket connection for user: " + connection + ". Proceeding to disconnect.");
             try {
                 connectionManager.remove(user); //First remove from connection manager to prevent reconnection attempts
                 connection.sendClose();
@@ -115,7 +103,7 @@ public class WsClient {
 
     public void reconnect(WebSocket webSocket) {
         try {
-            Thread.sleep(5000); // Wait before reconnecting
+            Thread.sleep(5000); // Wait 5s before reconnecting
             logger.warn("Reconnecting to: " + webSocket.getURI());
             webSocket = webSocket.recreate(100).connect();
         } catch (Exception e) {
