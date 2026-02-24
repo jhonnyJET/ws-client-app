@@ -21,10 +21,14 @@ public class RouteApi {
         this.routeService = routeService;
     }
 
-
     public void kickOffWsConnectBatch(List<String> userIds) throws IOException, InterruptedException {
         Logger.getAnonymousLogger().log(Level.WARNING, "Kick off WS connect batch");
         userIds.forEach(user -> {
+            try {
+                Thread.sleep(100); // Simulate some delay between connection attempts
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }   
             executor.submit(() -> {
                 try {
                     routeService.kickoffWsConnection(user);
